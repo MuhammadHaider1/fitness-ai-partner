@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.agents.router_agent import parse_entry
 from app.core.deps import get_current_user
@@ -10,12 +10,27 @@ from app.schemas.workout import WorkoutDraft
 router = APIRouter(prefix="/agent", tags=["agent-entry"])
 
 
+def is_rate_limited(error: Exception) -> bool:
+    return "429" in str(error) or "RESOURCE_EXHAUSTED" in str(error)
+
+
 @router.post("/parse", response_model=EntryDraft)
 async def parse_any_entry(
     payload: EntryCreateFromText,
     current_user: User = Depends(get_current_user),
 ):
-    result = await parse_entry(payload.raw_text)
+    try:
+        result = await parse_entry(payload.raw_text)
+    except Exception as e:
+        if is_rate_limited(e):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="AI is busy right now (Gemini rate limit reached). Please try again in a minute.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI could not parse your entry. Please try again.",
+        )
 
     if result["intent"] == "meal":
         parsed = result["parsed_meal"]

@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user
@@ -23,7 +23,18 @@ async def generate_report(
     today = date.today()
     week_start = today - timedelta(days=today.weekday())  # is hafte ka Monday
     week_end = week_start + timedelta(days=6)
-    return await generate_and_save_weekly_report(db, current_user.id, week_start, week_end)
+    try:
+        return await generate_and_save_weekly_report(db, current_user.id, week_start, week_end)
+    except Exception as e:
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="AI is busy right now (Gemini rate limit reached). Please try again in a minute.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Weekly report could not be generated. Please try again.",
+        )
 
 
 @router.get("/", response_model=list[WeeklyReportRead],status_code=status.HTTP_200_OK)

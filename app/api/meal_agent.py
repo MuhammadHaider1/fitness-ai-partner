@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.nutrition_agent import adjust_meal_draft
@@ -16,7 +16,18 @@ async def adjust_meal(
     payload: MealAdjustRequest,
     current_user: User = Depends(get_current_user),
 ):
-    parsed = await adjust_meal_draft(payload.previous_draft, payload.adjustment_text)
+    try:
+        parsed = await adjust_meal_draft(payload.previous_draft, payload.adjustment_text)
+    except Exception as e:
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="AI is busy right now (Gemini rate limit reached). Please try again in a minute.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI could not adjust your meal. Please try again.",
+        )
     return MealDraft(
         is_confident=parsed.is_confident,
         clarification_question=parsed.clarification_question,

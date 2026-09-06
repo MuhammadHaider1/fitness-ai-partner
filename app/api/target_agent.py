@@ -14,6 +14,16 @@ async def get_suggested_target(current_user: User = Depends(get_current_user)):
         result = await suggest_target(current_user)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="AI is busy right now (Gemini rate limit reached). Please try again in a minute.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Target suggestion failed. Please try again.",
+        )
 
     return SuggestedTargetResponse(
         calorie_target=result.calorie_target,
