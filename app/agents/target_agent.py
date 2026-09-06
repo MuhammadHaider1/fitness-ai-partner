@@ -7,7 +7,6 @@ from app.core.config import settings
 from app.models.user import User
 from app.services.body_metrics import (
     body_metrics,
-    calculate_bmi,
     local_targets,
 )
 
@@ -18,6 +17,7 @@ class SuggestedTarget(BaseModel):
     carbs_target_g: float = Field(description="Recommended daily carbs target in grams")
     fats_target_g: float = Field(description="Recommended daily fats target in grams")
     reasoning: str = Field(description="Brief explanation of how this was calculated, mentioning BMR/TDEE/BMI and the goal")
+    source: str = Field(default="ai", description="ai = machine-generated, math = plain formula estimate")
 
 
 def build_target_prompt(user: User, metrics: dict, hint: dict) -> str:
@@ -55,6 +55,27 @@ def user_metrics(user: User) -> dict:
     return body_metrics(user.age, user.height_cm, user.weight_kg, user.gender, user.activity_level)
 
 
+def math_fallback(user: User, metrics: dict) -> SuggestedTarget:
+    """Gemini ke bina hi reliable targets — direct formula estimate."""
+    hint = local_targets(metrics["tdee"], user.weight_kg, user.goal)
+    goal = (user.goal or "maintenance").replace("_", " ").capitalize()
+    reasoning = (
+        f"Gemini AI abhi busy tha, is liye ye targets seedhe aap ke profile se calculate kiye gaye: "
+        f"BMR {metrics['bmr']} kcal, TDEE {metrics['tdee']} kcal, BMI {metrics['bmi']}. "
+        f"Goal ({goal}) ke hisaab se daily intake {hint['calorie_target']} kcal suggest hai, "
+        f"protein {hint['protein_target_g']}g (muscle retention ke liye 1.8g/kg). "
+        f"Jab AI available ho to zyada personalized estimate mili mein."
+    )
+    return SuggestedTarget(
+        calorie_target=hint["calorie_target"],
+        protein_target_g=hint["protein_target_g"],
+        carbs_target_g=hint["carbs_target_g"],
+        fats_target_g=hint["fats_target_g"],
+        reasoning=reasoning,
+        source="math",
+    )
+
+
 async def suggest_target(user: User) -> SuggestedTarget:
     metrics = user_metrics(user)
     hint = local_targets(metrics["tdee"], user.weight_kg, user.goal)
@@ -68,5 +89,11 @@ async def suggest_target(user: User) -> SuggestedTarget:
     )
     structured_llm = llm.with_structured_output(SuggestedTarget)
 
-    result = await structured_llm.ainvoke(prompt)
+    try:
+        result = await structured_llm.ainvoke(prompt)
+    except Exception:
+        # Gemini unavailable / rate-limited → reliable math fallback, never a hard failure
+        return math_fallback(user, metrics)
+
+    result.source = "ai"
     return cast(SuggestedTarget, result)

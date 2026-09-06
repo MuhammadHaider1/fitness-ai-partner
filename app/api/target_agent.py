@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,12 +21,7 @@ async def get_suggested_target(current_user: User = Depends(get_current_user)):
         metrics = user_metrics(current_user)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="AI is busy right now (Gemini rate limit reached). Please try again in a minute.",
-            )
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Target suggestion failed. Please try again.",
@@ -38,6 +35,7 @@ async def get_suggested_target(current_user: User = Depends(get_current_user)):
         bmr=metrics["bmr"],
         tdee=metrics["tdee"],
         bmi=metrics["bmi"],
+        source=result.source,
         reasoning=result.reasoning,
     )
 
@@ -49,18 +47,11 @@ async def apply_target(
     db: AsyncSession = Depends(get_db),
 ):
     """Suggested target ko aaj ki daily-log par as calorie target apply karta hai."""
-    from datetime import date
-
     update_in = DailyLogUpdate(calorie_target=payload.calorie_target)
     today = date.today()
     try:
         return await update_daily_log(db, current_user.id, today, update_in)
-    except Exception as e:
-        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="AI is busy right now (Gemini rate limit reached). Please try again in a minute.",
-            )
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Target apply nahi ho saka. Please try again.",

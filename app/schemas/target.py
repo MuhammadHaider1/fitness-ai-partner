@@ -9,6 +9,7 @@ class SuggestedTargetResponse(BaseModel):
     bmr: float
     tdee: float
     bmi: float
+    source: str = "ai"
     reasoning: str
 
 

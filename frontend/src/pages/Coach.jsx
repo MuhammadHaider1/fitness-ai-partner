@@ -8,6 +8,7 @@ export default function Coach() {
   const { user } = useAuth()
   const [daily, setDaily] = useState(null)
   const [target, setTarget] = useState(null)
+  const [targetErr, setTargetErr] = useState('')
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
@@ -37,7 +38,7 @@ export default function Coach() {
           : 'AI coach insight abhi nahi mil saki. Thori der baad try karo.')
       })
       .finally(() => setCoachLoading(false))
-    api.get('/coach/suggest-target').then((r) => setTarget(r.data)).catch(() => setTarget(null))
+    api.get('/coach/suggest-target').then((r) => setTarget(r.data)).catch((e) => setTargetErr(e.response?.data?.detail || 'Target load nahi hua.'))
     api.get('/weekly-report/').then((r) => setReports(r.data)).catch(() => setReports([]))
     api.get(`/daily-log/history?${range}`).then((r) => setLogs(r.data)).catch(() => setLogs([]))
       .finally(() => setLoading(false))
@@ -151,9 +152,14 @@ export default function Coach() {
               <div className="card" style={{ marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
                   <b>📊 Your body metrics (from profile)</b>
-                  <button className="btn btn--success btn--sm" onClick={applyTarget} disabled={busy}>
-                    {busy ? <Spinner /> : applied ? '✅ Applied as today\'s target' : '🎯 Apply as today\'s target'}
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {target.source === 'math'
+                      ? <Pill tone="amber">⚡ Calculated estimate (AI busy)</Pill>
+                      : <Pill tone="green">✨ AI-generated</Pill>}
+                    <button className="btn btn--success btn--sm" onClick={applyTarget} disabled={busy}>
+                      {busy ? <Spinner /> : applied ? '✅ Applied as today\'s target' : '🎯 Apply as today\'s target'}
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid--4">
                   <div className="stat" style={{ textAlign: 'center' }}>
@@ -206,7 +212,17 @@ export default function Coach() {
               </div>
             </div>
           ) : (
-            <Empty emoji="🎯" title="No targets available" subtitle="Add your height, weight & activity to Settings and the AI will compute your BMR/TDEE/BMI-based targets." />
+            <div>
+              {targetErr && <ErrBanner message={targetErr} />}
+              {!user?.age || !user?.height_cm || !user?.weight_kg || !user?.gender ? (
+                <Empty emoji="🎯" title="No targets available" subtitle="Add your height, weight, age & gender in Settings and the AI will compute your BMR/TDEE/BMI-based targets." />
+              ) : (
+                <Empty emoji="🎯" title="No targets loaded" subtitle="Targets load nahi hue — retry karo." />
+              )}
+              <div style={{ textAlign: 'center', marginTop: 8 }}>
+                <button className="btn btn--ghost btn--sm" onClick={() => setRefreshKey((k) => k + 1)}>🔄 Retry</button>
+              </div>
+            </div>
           )}
         </div>
       )}
