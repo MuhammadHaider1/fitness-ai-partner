@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import api from '../services/api'
 import { ErrBanner, Spinner, Pill, Empty, LoadingFill } from '../components/ui'
-import { fmtNumber, weekdayLabel } from '../services/format'
+import { fmtNumber, weekdayLabel, todayISO } from '../services/format'
 import { useAuth } from '../context/AuthContext'
 
 export default function Coach() {
@@ -11,21 +11,33 @@ export default function Coach() {
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
+  const [coachErr, setCoachErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [tab, setTab] = useState('daily')
   const [logs, setLogs] = useState([])
+  const [refreshKey, setRefreshKey] = useState(0)
   const bottomRef = useRef(null)
 
   useEffect(() => {
-    Promise.all([
-      api.get('/coach/daily').then((r) => setDaily(r.data)).catch(() => setDaily(null)),
-      api.get('/coach/suggest-target').then((r) => setTarget(r.data)).catch(() => setTarget(null)),
-      api.get('/weekly-report/').then((r) => setReports(r.data)).catch(() => setReports([])),
-      api.get('/daily-log/history').then((r) => setLogs(r.data)).catch(() => setLogs([])),
-    ])
-      .catch(() => setErr('Some AI features need your profile to be complete. Go to Settings to add age, height & weight.'))
+    const end = todayISO()
+    const start = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+    const range = `start_date=${start}&end_date=${end}`
+    setLoading(true)
+    setCoachErr('')
+    api.get('/coach/daily')
+      .then((r) => setDaily(r.data))
+      .catch((e) => {
+        setDaily(null)
+        const code = e.response?.status
+        setCoachErr(code === 429
+          ? 'AI coach is busy right now (Gemini rate limit reached). Waapas try karo thori der baad.'
+          : 'AI coach insight abhi nahi mil saki. Thori der baad try karo.')
+      })
+    api.get('/coach/suggest-target').then((r) => setTarget(r.data)).catch(() => setTarget(null))
+    api.get('/weekly-report/').then((r) => setReports(r.data)).catch(() => setReports([]))
+    api.get(`/daily-log/history?${range}`).then((r) => setLogs(r.data)).catch(() => setLogs([]))
       .finally(() => setLoading(false))
-  }, [])
+  }, [refreshKey])
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [daily])
 
@@ -63,7 +75,14 @@ export default function Coach() {
             <div className="msg-body">
               <b>Assalam-o-Alaikum {user?.full_name?.split(' ')[0] || 'friend'}!</b>
               <p className="muted">Here&apos;s your coaching for {weekdayLabel(new Date().toISOString().slice(0, 10))}</p>
-              {daily ? (
+              {coachErr ? (
+                <div>
+                  <p>🤕 {coachErr}</p>
+                  <button className="btn btn--sm" style={{ marginTop: 8 }} onClick={() => setRefreshKey((k) => k + 1)}>
+                    🔄 Retry
+                  </button>
+                </div>
+              ) : daily ? (
                 <>
                   <p>{daily.summary}</p>
                   {daily.highlights?.length > 0 && (

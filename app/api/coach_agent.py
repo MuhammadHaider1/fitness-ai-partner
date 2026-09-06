@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.coach_agent import generate_daily_coach_insight
@@ -28,7 +28,18 @@ async def get_daily_coach_feedback(
     # Current streak nikalne ke liye pichle 30 din ka summary use karte hain
     summary = await get_daily_log_summary(db, current_user.id, log_date - timedelta(days=30), log_date)
 
-    insight = await generate_daily_coach_insight(daily_log, meals, workouts, summary.current_streak)
+    try:
+        insight = await generate_daily_coach_insight(daily_log, meals, workouts, summary.current_streak)
+    except Exception as e:
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="AI coach is busy right now (Gemini rate limit reached). Please try again in a minute.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI coach could not generate insight. Please try again.",
+        )
 
     return DailyCoachResponse(
         log_date=log_date,
