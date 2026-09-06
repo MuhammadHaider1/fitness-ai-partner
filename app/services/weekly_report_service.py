@@ -5,11 +5,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.coach_agent import generate_weekly_coach_insight
+from app.core.config import settings
+from app.models.user import User
 from app.models.weekly_report import WeeklyReport
 from app.services.daily_log_service import get_daily_log_summary
 
 
-async def generate_and_save_weekly_report(db: AsyncSession, user_id: uuid.UUID, week_start: date, week_end: date) -> WeeklyReport:
+async def generate_and_save_weekly_report(db: AsyncSession, user: User, week_start: date, week_end: date) -> WeeklyReport:
+    user_id = user.id
     daily_summary = await get_daily_log_summary(db, user_id, week_start, week_end)
 
     # Poore hafte ki meals/workouts count karne ke liye (day-by-day loop, kyunke get_meals_by_user single-date filter leta hai)
@@ -39,7 +42,7 @@ async def generate_and_save_weekly_report(db: AsyncSession, user_id: uuid.UUID, 
         )
     workouts_count = workouts_count_result.scalar_one()
 
-    insight = await generate_weekly_coach_insight(week_start, week_end, daily_summary, meals_count, workouts_count)
+    insight = await generate_weekly_coach_insight(week_start, week_end, daily_summary, meals_count, workouts_count, user)
 
     # Existing report check karo (agar dobara generate ho raha ho usi hafte ke liye)
     result = await db.execute(

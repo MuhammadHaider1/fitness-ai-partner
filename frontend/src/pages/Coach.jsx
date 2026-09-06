@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import api from '../services/api'
 import { ErrBanner, Spinner, Pill, Empty, LoadingFill } from '../components/ui'
-import { fmtNumber, weekdayLabel, todayISO } from '../services/format'
+import { fmtNumber, weekdayLabel, todayISO, bmiLabel } from '../services/format'
 import { useAuth } from '../context/AuthContext'
 
 export default function Coach() {
@@ -13,6 +13,7 @@ export default function Coach() {
   const [err, setErr] = useState('')
   const [coachErr, setCoachErr] = useState('')
   const [coachLoading, setCoachLoading] = useState(false)
+  const [applied, setApplied] = useState(false)
   const [busy, setBusy] = useState(false)
   const [tab, setTab] = useState('daily')
   const [logs, setLogs] = useState([])
@@ -52,6 +53,17 @@ export default function Coach() {
       setTab('weekly')
     } catch (e2) {
       setErr(e2.response?.data?.detail || 'Could not generate weekly report.')
+    } finally { setBusy(false) }
+  }
+
+  const applyTarget = async () => {
+    if (!target || busy) return
+    setBusy(true); setErr('')
+    try {
+      await api.post('/coach/apply-target', { calorie_target: target.calorie_target })
+      setApplied(true)
+    } catch (e2) {
+      setErr(e2.response?.data?.detail || 'Could not apply target — try again.')
     } finally { setBusy(false) }
   }
 
@@ -136,9 +148,39 @@ export default function Coach() {
         <div>
           {target ? (
             <div>
+              <div className="card" style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+                  <b>📊 Your body metrics (from profile)</b>
+                  <button className="btn btn--success btn--sm" onClick={applyTarget} disabled={busy}>
+                    {busy ? <Spinner /> : applied ? '✅ Applied as today\'s target' : '🎯 Apply as today\'s target'}
+                  </button>
+                </div>
+                <div className="grid grid--4">
+                  <div className="stat" style={{ textAlign: 'center' }}>
+                    <div className="stat__label">BMR</div>
+                    <div className="stat__value" style={{ fontSize: 20 }}>{fmtNumber(target.bmr)}</div>
+                    <div className="muted">kcal/day (rest)</div>
+                  </div>
+                  <div className="stat" style={{ textAlign: 'center' }}>
+                    <div className="stat__label">TDEE</div>
+                    <div className="stat__value" style={{ fontSize: 20 }}>{fmtNumber(target.tdee)}</div>
+                    <div className="muted">kcal/day (maintenance)</div>
+                  </div>
+                  <div className="stat" style={{ textAlign: 'center' }}>
+                    <div className="stat__label">BMI</div>
+                    <div className="stat__value" style={{ fontSize: 20 }}>{target.bmi}</div>
+                    <div className="muted">{bmiLabel(target.bmi)}</div>
+                  </div>
+                  <div className="stat" style={{ textAlign: 'center' }}>
+                    <div className="stat__label">AI Calories</div>
+                    <div className="stat__value" style={{ fontSize: 20 }}>{fmtNumber(target.calorie_target)}</div>
+                    <div className="muted">daily intake goal</div>
+                  </div>
+                </div>
+              </div>
               <div className="grid grid--4" style={{ marginBottom: 16 }}>
                 <div className="card" style={{ textAlign: 'center' }}>
-                  <div className="stat__label">Calories</div>
+                  <div className="stat__label">Calories target</div>
                   <div className="stat__value" style={{ fontSize: 22 }}>{fmtNumber(target.calorie_target)}</div>
                 </div>
                 <div className="card" style={{ textAlign: 'center' }}>
@@ -160,11 +202,11 @@ export default function Coach() {
               </div>
               <div className="card" style={{ marginTop: 14, background: 'var(--primary-soft)', borderColor: 'var(--primary)' }}>
                 <b>💡 Tip:</b>
-                <p className="muted" style={{ marginTop: 4 }}>Use these targets in your daily log (Settings → Calorie target) to measure whether you&apos;re on track. The weekly report will tell you how often you hit them.</p>
+                <p className="muted" style={{ marginTop: 4 }}>Press <b>Apply as today&apos;s target</b> and your calorie target will be set on today&apos;s log automatically — Dashboard &amp; History will compare against it, and the AI Coach references it in daily insights.</p>
               </div>
             </div>
           ) : (
-            <Empty emoji="🎯" title="No targets available" subtitle="Add your height, weight & activity to Settings and the AI will compute your BMR/TDEE-based targets." />
+            <Empty emoji="🎯" title="No targets available" subtitle="Add your height, weight & activity to Settings and the AI will compute your BMR/TDEE/BMI-based targets." />
           )}
         </div>
       )}

@@ -29,7 +29,7 @@ async def get_daily_coach_feedback(
     summary = await get_daily_log_summary(db, current_user.id, log_date - timedelta(days=30), log_date)
 
     try:
-        insight = await generate_daily_coach_insight(daily_log, meals, workouts, summary.current_streak)
+        insight = await generate_daily_coach_insight(daily_log, meals, workouts, summary.current_streak, current_user)
     except Exception as e:
         if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
             raise HTTPException(

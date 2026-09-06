@@ -24,7 +24,7 @@ async def generate_report(
     week_start = today - timedelta(days=today.weekday())  # is hafte ka Monday
     week_end = week_start + timedelta(days=6)
     try:
-        return await generate_and_save_weekly_report(db, current_user.id, week_start, week_end)
+        return await generate_and_save_weekly_report(db, current_user, week_start, week_end)
     except Exception as e:
         if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
             raise HTTPException(

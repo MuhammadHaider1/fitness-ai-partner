@@ -12,3 +12,11 @@ export const weekdayLabel = (iso) => new Date(iso).toLocaleDateString('en-GB', {
 export const isoWeekday = (date = new Date()) => (date.getDay() + 6) % 7
 export const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 export const dayName = (iso) => DAY_NAMES[isoWeekday(new Date(iso))]
+
+export const bmiLabel = (bmi) => {
+  if (!bmi) return '—'
+  if (bmi < 18.5) return 'Underweight'
+  if (bmi < 25) return 'Healthy'
+  if (bmi < 30) return 'Overweight'
+  return 'Obese'
+}

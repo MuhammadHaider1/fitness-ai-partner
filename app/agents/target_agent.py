@@ -5,6 +5,11 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.models.user import User
+from app.services.body_metrics import (
+    body_metrics,
+    calculate_bmi,
+    local_targets,
+)
 
 
 class SuggestedTarget(BaseModel):
@@ -12,30 +17,10 @@ class SuggestedTarget(BaseModel):
     protein_target_g: float = Field(description="Recommended daily protein target in grams")
     carbs_target_g: float = Field(description="Recommended daily carbs target in grams")
     fats_target_g: float = Field(description="Recommended daily fats target in grams")
-    reasoning: str = Field(description="Brief explanation of how this was calculated, mentioning BMR/TDEE and the goal")
+    reasoning: str = Field(description="Brief explanation of how this was calculated, mentioning BMR/TDEE/BMI and the goal")
 
 
-def calculate_bmr(age: int, height_cm: float, weight_kg: float, gender: str) -> float:
-    """Mifflin-St Jeor equation — ek standard, widely-trusted BMR formula"""
-    if gender.lower() == "male":
-        return (10 * weight_kg) + (6.25 * height_cm) - (5 * age) + 5
-    return (10 * weight_kg) + (6.25 * height_cm) - (5 * age) - 161
-
-
-ACTIVITY_MULTIPLIERS = {
-    "sedentary": 1.2,
-    "light": 1.375,
-    "moderate": 1.55,
-    "active": 1.725,
-    "very_active": 1.9,
-}
-
-def calculate_tdee(bmr: float, activity_level: str | None) -> float:
-    multiplier = ACTIVITY_MULTIPLIERS.get((activity_level or "moderate").lower().replace(" ", "_"), 1.55)
-    return bmr * multiplier
-
-
-def build_target_prompt(user: User, bmr: float, tdee: float) -> str:
+def build_target_prompt(user: User, metrics: dict, hint: dict) -> str:
     return f"""You are a fitness nutrition expert. Recommend a daily calorie and macro target for this user.
 
 Age: {user.age}
@@ -45,8 +30,10 @@ Gender: {user.gender}
 Goal: {user.goal or "not specified — assume general health/maintenance"}
 Activity level: {user.activity_level or "moderate"}
 
-Calculated BMR (Basal Metabolic Rate): {bmr:.0f} kcal
-Calculated TDEE (Total Daily Energy Expenditure): {tdee:.0f} kcal
+Calculated body metrics (from their profile):
+- BMR (Basal Metabolic Rate): {metrics['bmr']} kcal
+- TDEE (Total Daily Energy Expenditure): {metrics['tdee']} kcal
+- BMI: {metrics['bmi']}
 
 Based on their goal:
 - If goal is weight loss / cutting / fat loss: suggest a moderate deficit (~15-20% below TDEE)
@@ -56,23 +43,22 @@ Based on their goal:
 
 Also recommend protein (higher for muscle gain/recomp, ~1.6-2.2g per kg bodyweight), and reasonable carbs/fats to fill the remaining calories.
 
-Give practical, realistic numbers — not extreme values.
+A plain math estimate is: {hint['calorie_target']} kcal, protein {hint['protein_target_g']}g, carbs {hint['carbs_target_g']}g, fats {hint['fats_target_g']}g.
+Use it as a sanity baseline and give practical, realistic rounded numbers — not extreme values.
 """
 
-async def suggest_target(user: User) -> SuggestedTarget:
+
+def user_metrics(user: User) -> dict:
+    """Complete safe wrapper — returns metrics dict or raises ValueError if profile incomplete."""
     if not all([user.age, user.height_cm, user.weight_kg, user.gender]):
         raise ValueError("User profile incomplete — age, height_cm, weight_kg, and gender are required for target suggestion")
+    return body_metrics(user.age, user.height_cm, user.weight_kg, user.gender, user.activity_level)
 
-    # Ab Pylance ko explicitly batao ke ye fields None nahi hain (humne upar check kar liya hai)
-    assert user.age is not None
-    assert user.height_cm is not None
-    assert user.weight_kg is not None
-    assert user.gender is not None
 
-    bmr = calculate_bmr(user.age, user.height_cm, user.weight_kg, user.gender)
-    tdee = calculate_tdee(bmr, user.activity_level)
-
-    prompt = build_target_prompt(user, bmr, tdee)
+async def suggest_target(user: User) -> SuggestedTarget:
+    metrics = user_metrics(user)
+    hint = local_targets(metrics["tdee"], user.weight_kg, user.goal)
+    prompt = build_target_prompt(user, metrics, hint)
 
     llm = ChatGoogleGenerativeAI(
         model="gemini-3.6-flash",
