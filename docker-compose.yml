@@ -1,0 +1,23 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: fitness_ai_db
+    restart: always
+    environment:
+      POSTGRES_USER: fitness_admin
+      POSTGRES_PASSWORD: fitness_password
+      POSTGRES_DB: fitness_ai_db
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: fitness_ai_redis
+    restart: always
+    ports:
+      - "6381:6379"
+
+volumes:
+  postgres_data:

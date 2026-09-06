@@ -1,5 +1,30 @@
-venv/
+# Environment variables (secrets!)
 .env
+.env.*
+!.env.example
+
+# Python
+venv/
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
 .DS_Store
+
+# Alembic (keep migrations, ignore nothing extra here — versions folder should be committed)
+
+# Logs
+*.log
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
