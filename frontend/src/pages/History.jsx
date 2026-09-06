@@ -17,9 +17,12 @@ export default function History() {
 
   const load = () => {
     setErr('')
+    const end = todayISO()
+    const start = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+    const range = `start_date=${start}&end_date=${end}`
     Promise.all([
-      api.get('/daily-log/summary').then((r) => setSummary(r.data)),
-      api.get('/daily-log/history').then((r) => setLogs(r.data)),
+      api.get(`/daily-log/summary?${range}`).then((r) => setSummary(r.data)),
+      api.get(`/daily-log/history?${range}`).then((r) => setLogs(r.data)),
       api.get('/meals/').then((r) => setMeals(r.data)),
       api.get('/workouts/').then((r) => setWorkouts(r.data)),
     ])
