@@ -1,9 +1,8 @@
 from typing import cast
 
-from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
-from app.core.config import settings
+from app.core.llm import get_llm, json_schema_instruction
 from app.models.user import User
 from app.services.body_metrics import (
     body_metrics,
@@ -45,6 +44,8 @@ Also recommend protein (higher for muscle gain/recomp, ~1.6-2.2g per kg bodyweig
 
 A plain math estimate is: {hint['calorie_target']} kcal, protein {hint['protein_target_g']}g, carbs {hint['carbs_target_g']}g, fats {hint['fats_target_g']}g.
 Use it as a sanity baseline and give practical, realistic rounded numbers — not extreme values.
+
+{json_schema_instruction(SuggestedTarget)}
 """
 
 
@@ -56,15 +57,15 @@ def user_metrics(user: User) -> dict:
 
 
 def math_fallback(user: User, metrics: dict) -> SuggestedTarget:
-    """Gemini ke bina hi reliable targets — direct formula estimate."""
+    """Direct formula estimate — reliable targets without AI."""
     hint = local_targets(metrics["tdee"], user.weight_kg, user.goal)
     goal = (user.goal or "maintenance").replace("_", " ").capitalize()
     reasoning = (
-        f"Gemini AI abhi busy tha, is liye ye targets seedhe aap ke profile se calculate kiye gaye: "
+        f"The AI service was momentarily unavailable, so these targets were calculated directly from your profile: "
         f"BMR {metrics['bmr']} kcal, TDEE {metrics['tdee']} kcal, BMI {metrics['bmi']}. "
-        f"Goal ({goal}) ke hisaab se daily intake {hint['calorie_target']} kcal suggest hai, "
-        f"protein {hint['protein_target_g']}g (muscle retention ke liye 1.8g/kg). "
-        f"Jab AI available ho to zyada personalized estimate mili mein."
+        f"Based on your goal ({goal}), a daily intake of {hint['calorie_target']} kcal is suggested, "
+        f"with protein at {hint['protein_target_g']}g (1.8g/kg for muscle retention). "
+        f"You'll get a more personalized estimate once the AI is available."
     )
     return SuggestedTarget(
         calorie_target=hint["calorie_target"],
@@ -81,13 +82,8 @@ async def suggest_target(user: User) -> SuggestedTarget:
     hint = local_targets(metrics["tdee"], user.weight_kg, user.goal)
     prompt = build_target_prompt(user, metrics, hint)
 
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-3.6-flash",
-        google_api_key=settings.GEMINI_API_KEY,
-        temperature=0.3,
-        max_retries=0,
-    )
-    structured_llm = llm.with_structured_output(SuggestedTarget)
+    llm = get_llm(temperature=0.3)
+    structured_llm = llm.with_structured_output(SuggestedTarget, method="json_mode")
 
     try:
         result = await structured_llm.ainvoke(prompt)

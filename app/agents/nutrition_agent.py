@@ -1,11 +1,10 @@
 from typing import TypedDict, cast
 
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, Field
 
-from app.core.config import settings
+from app.core.llm import get_llm, json_schema_instruction
 from app.db.session import AsyncSessionLocal
 from app.schemas.meal import MealDraft
 from app.services.food_retrieval_service import retrieve_similar_foods
@@ -31,14 +30,9 @@ class AgentState(TypedDict):
     parsed_meal: ParsedMeal | None
 
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-3.6-flash",
-    google_api_key=settings.GEMINI_API_KEY,
-    temperature=0.2,
-    max_retries=0,
-)
+llm = get_llm(temperature=0.2)
 
-structured_llm = llm.with_structured_output(ParsedMeal)
+structured_llm = llm.with_structured_output(ParsedMeal, method="json_mode")
 
 async def retrieve_context_node(state: AgentState) -> AgentState:
     async with AsyncSessionLocal() as db:
@@ -72,6 +66,8 @@ Identify the food items and their approximate quantities, then estimate total nu
 User's input: "{state['raw_text']}"{meal_type_context}
 {retrieved_section}
 First, decide if the input has ENOUGH detail to estimate nutrition. If NOT enough: set is_confident=False, ask a clarification_question. If enough: set is_confident=True and estimate, using the verified reference data above when it closely matches the described food (scale it to the user's stated quantity), and your general knowledge otherwise.
+
+{json_schema_instruction(ParsedMeal)}
 """
 
     result = structured_llm.invoke(prompt)
@@ -111,6 +107,8 @@ The user now says: "{adjustment_text}"
 Adjust your estimate based on this feedback (e.g. if they say quantity was more/less, or they add/remove an item).
 If the feedback is clear enough, set is_confident=True and give the updated estimate.
 If the feedback is still too vague to adjust meaningfully, set is_confident=False and ask ONE specific clarification_question.
+
+{json_schema_instruction(ParsedMeal)}
 """
 
 

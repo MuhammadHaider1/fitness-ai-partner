@@ -1,12 +1,11 @@
 from typing import Literal, TypedDict, cast
 
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, Field
 
 from app.agents.nutrition_agent import ParsedMeal, parse_meal_text
 from app.agents.workout_agent import ParsedWorkout, parse_workout_text
-from app.core.config import settings
+from app.core.llm import get_llm, json_schema_instruction
 
 
 class IntentClassification(BaseModel):
@@ -20,20 +19,17 @@ class RouterState(TypedDict):
     parsed_workout: ParsedWorkout | None
 
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-3.6-flash",
-    google_api_key=settings.GEMINI_API_KEY,
-    temperature=0,
-    max_retries=0,
-)
+llm = get_llm(temperature=0)
 
-classifier_llm = llm.with_structured_output(IntentClassification)
+classifier_llm = llm.with_structured_output(IntentClassification, method="json_mode")
 
 
 def classify_intent_node(state: RouterState) -> RouterState:
     prompt = f"""Classify this user message as either "meal" (they ate/drank something) or "workout" (they exercised/did physical activity).
 
 Message: "{state['raw_text']}"
+
+{json_schema_instruction(IntentClassification)}
 """
     result = cast(IntentClassification, classifier_llm.invoke(prompt))
     state["intent"] = result.intent

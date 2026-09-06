@@ -19,6 +19,10 @@ export default function Coach() {
   const [tab, setTab] = useState('daily')
   const [logs, setLogs] = useState([])
   const [refreshKey, setRefreshKey] = useState(0)
+  const [chat, setChat] = useState([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatBusy, setChatBusy] = useState(false)
+  const [chatErr, setChatErr] = useState('')
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -34,8 +38,8 @@ export default function Coach() {
         setDaily(null)
         const code = e.response?.status
         setCoachErr(code === 429
-          ? 'AI coach is busy right now (Gemini rate limit reached). Waapas try karo thori der baad.'
-          : 'AI coach insight abhi nahi mil saki. Thori der baad try karo.')
+          ? 'AI coach is busy right now (Gemini rate limit reached). Please try again in a minute.'
+          : 'AI coach insight could not be generated. Please try again in a moment.')
       })
       .finally(() => setCoachLoading(false))
     api.get('/coach/suggest-target').then((r) => setTarget(r.data)).catch((e) => setTargetErr(e.response?.data?.detail || 'Target load nahi hua.'))
@@ -68,6 +72,26 @@ export default function Coach() {
     } finally { setBusy(false) }
   }
 
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chat])
+
+  const sendChat = async (e) => {
+    e.preventDefault()
+    const text = chatInput.trim()
+    if (!text || chatBusy) return
+    setChat((c) => [...c, { role: 'user', text }])
+    setChatInput('')
+    setChatBusy(true)
+    setChatErr('')
+    try {
+      const { data } = await api.post('/coach/ask', { message: text })
+      setChat((c) => [...c, { role: 'ai', text: data.reply }])
+    } catch (e2) {
+      setChatErr(e2.response?.data?.detail || 'AI coach could not reply right now. Please try again.')
+    } finally { setChatBusy(false) }
+  }
+
   if (loading) return <LoadingFill />
 
   return (
@@ -81,6 +105,7 @@ export default function Coach() {
         <button className={`tab${tab === 'daily' ? ' tab--active' : ''}`} onClick={() => setTab('daily')}>✨ Daily Insight</button>
         <button className={`tab${tab === 'targets' ? ' tab--active' : ''}`} onClick={() => setTab('targets')}>🎯 Suggestions</button>
         <button className={`tab${tab === 'weekly' ? ' tab--active' : ''}`} onClick={() => setTab('weekly')}>📅 Weekly Reports</button>
+        <button className={`tab${tab === 'chat' ? ' tab--active' : ''}`} onClick={() => setTab('chat')}>💬 Ask</button>
       </div>
 
       {tab === 'daily' && (
@@ -91,7 +116,7 @@ export default function Coach() {
               <b>Assalam-o-Alaikum {user?.full_name?.split(' ')[0] || 'friend'}!</b>
               <p className="muted">Here&apos;s your coaching for {weekdayLabel(new Date().toISOString().slice(0, 10))}</p>
               {coachLoading ? (
-                <Spinner label="AI coach insight generate ho rahi hai..." />
+                <Spinner label="Generating AI coach insight..." />
               ) : coachErr ? (
                 <div>
                   <p>🤕 {coachErr}</p>
@@ -216,7 +241,7 @@ export default function Coach() {
               {!user?.age || !user?.height_cm || !user?.weight_kg || !user?.gender ? (
                 <Empty emoji="🎯" title="No targets available" subtitle="Add your height, weight, age & gender in Settings and the AI will compute your BMR/TDEE/BMI-based targets." />
               ) : (
-                <Empty emoji="🎯" title="No targets loaded" subtitle="Targets load nahi hue — retry karo." />
+                <Empty emoji="🎯" title="No targets loaded" subtitle="Targets could not be loaded — retry." />
               )}
               <div style={{ textAlign: 'center', marginTop: 8 }}>
                 <button className="btn btn--ghost btn--sm" onClick={() => setRefreshKey((k) => k + 1)}>🔄 Retry</button>
@@ -267,6 +292,53 @@ export default function Coach() {
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {tab === 'chat' && (
+        <div>
+          <div style={{ marginBottom: 8 }}>
+            <b>💬 Ask your AI Coach anything</b>
+            <p className="muted">Diet, workouts, targets, progress — the coach knows your profile and recent activity. English ya Urdu dono mein jawab dega.</p>
+          </div>
+          <div className="chat-scroll" style={{ maxHeight: 420 }}>
+            {chat.length === 0 && !chatBusy && (
+              <div className="msg msg--ai">
+                <div className="msg-avatar">🤖</div>
+                <div className="msg-body">
+                  <b>Your AI Coach</b>
+                  <p className="muted" style={{ marginTop: 4 }}>Assalam-o-Alaikum! Pehla sawal poocho — e.g. "My diet plan mein kya improve karun?" ya "Kya mujhe protein badhana chahiye?"</p>
+                </div>
+              </div>
+            )}
+            {chat.map((m, i) => (
+              <div key={i} className={`msg ${m.role === 'user' ? 'msg--user' : 'msg--ai'}`}>
+                <div className="msg-avatar">{m.role === 'user' ? '🙋' : '🤖'}</div>
+                <div className="msg-body">
+                  {m.text.split('\n').filter((p) => p.trim()).map((p, j) => <p key={j}>{p}</p>)}
+                </div>
+              </div>
+            ))}
+            {chatBusy && (
+              <div className="msg msg--ai">
+                <div className="msg-avatar">🤖</div>
+                <div className="msg-body"><Spinner label="AI coach soch raha hai..." /></div>
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+          <form className="ai-input" style={{ marginTop: 12 }} onSubmit={sendChat}>
+            <input
+              className="input"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Ask anything — e.g. 'Should I increase protein?'"
+            />
+            <button className="btn" type="submit" disabled={chatBusy || !chatInput.trim()}>
+              {chatBusy ? <Spinner /> : 'Send ➤'}
+            </button>
+          </form>
+          {chatErr && <ErrBanner message={chatErr} />}
         </div>
       )}
     </div>

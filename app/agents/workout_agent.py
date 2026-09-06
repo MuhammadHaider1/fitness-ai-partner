@@ -1,11 +1,10 @@
 from typing import TypedDict, cast
 
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, Field
 
-from app.core.config import settings
+from app.core.llm import get_llm, json_schema_instruction
 from app.schemas.workout import WorkoutDraft
 
 load_dotenv()
@@ -30,14 +29,9 @@ class AgentState(TypedDict):
     parsed_workout: ParsedWorkout | None
 
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-3.6-flash",
-    google_api_key=settings.GEMINI_API_KEY,
-    temperature=0.2,
-    max_retries=0,
-)
+llm = get_llm(temperature=0.2)
 
-structured_llm = llm.with_structured_output(ParsedWorkout)
+structured_llm = llm.with_structured_output(ParsedWorkout, method="json_mode")
 
 
 def parse_workout_node(state: AgentState) -> AgentState:
@@ -51,6 +45,8 @@ First, decide if there's ENOUGH detail to estimate (exercise name + duration/set
 If NOT enough: set is_confident=False, ask one specific clarification_question. Leave other fields null.
 
 If enough: set is_confident=True, classify as workout_type "cardio" or "strength", fill relevant fields (cardio: duration/distance; strength: sets/reps/weight), infer intensity, and estimate calories_burned for an average adult based on typical MET values for the activity and duration/effort.
+
+{json_schema_instruction(ParsedWorkout)}
 """
     result = structured_llm.invoke(prompt)
     state["parsed_workout"] = cast(ParsedWorkout, result)
@@ -67,6 +63,8 @@ Your reasoning: {previous_draft.reasoning}
 The user now says: "{adjustment_text}"
 
 Adjust your estimate based on this feedback. If clear enough, set is_confident=True with updated values. If still too vague, set is_confident=False and ask ONE clarification_question.
+
+{json_schema_instruction(ParsedWorkout)}
 """
 
 
