@@ -6,7 +6,8 @@
 ![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+pgvector-4169E1?logo=postgresql&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-1.x-1C3C3C)
-![Google Gemini](https://img.shields.io/badge/Gemini-3.6_FLASH-4285F4?logo=google&logoColor=white)
+![Groq](https://img.shields.io/badge/Groq-gpt--oss--120b-F55036?logo=groq&logoColor=white)
+![Gemini Embeddings](https://img.shields.io/badge/Embeddings-Gemini_768--dim-4285F4?logo=google&logoColor=white)
 ![Celery](https://img.shields.io/badge/Celery-5.6+-37814A?logo=celery&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)
 
@@ -16,6 +17,7 @@
 
 - [✨ Features](#-features)
 - [🧠 Why This Is Awesome](#-why-this-is-awesome)
+- [🧗 Problems Solved Along the Way](#-problems-solved-along-the-way)
 - [🏗️ Architecture](#️-architecture)
 - [⚙️ Tech Stack](#️-tech-stack)
 - [📁 Project Structure](#-project-structure)
@@ -39,10 +41,13 @@
   - `/agent/parse` classifies intent (meal vs workout) via **RouterAgent (LangGraph)**.
   - `/agent/meals/adjust` & `/agent/workouts/adjust` refine the draft.
   - `/agent/meals/confirm` & `/agent/workouts/confirm` save to DB.
-- **🔍 RAG-Grounded Nutrition Estimates** — Instead of pure LLM guessing, verified food data is retrieved from a **pgvector** store using Gemini embeddings, and used to *ground* the LLM's estimate (accurate + explainable).
-- **🤖 AI Coach** — Daily (`/coach/daily`) and weekly coach insights with highlights & suggestions.
+- **🔍 RAG-Grounded Nutrition Estimates** — Instead of pure LLM guessing, verified food data is retrieved from a **pgvector** store (Gemini embeddings), and used to *ground* the LLM's estimate (accurate + explainable). Text generation runs on **Groq**.
+- **🤖 AI Coach** — Daily (`/coach/daily`) and weekly coach insights with highlights & suggestions, personalized with the user's profile (BMR/TDEE/BMI) + last 7 days of activity.
+- **💬 AI Coach Chat** — Ask the coach anything (`/coach/ask`): diet, workouts, progress. Replies are grounded in the user's profile + recent daily logs, not generic GPT text.
+- **🧩 LLM Provider Abstraction** — A single `get_llm()` factory (`app/core/llm.py`); provider is decided by `.env` (Groq default, Gemini reference). Swap providers without touching agents.
 - **🎯 Smart Targets** — BMR/TDEE calculation with goal-based macro suggestions (`/coach/suggest-target`).
 - **📊 Daily Log Aggregation** — Denormalized per-day totals with incremental sync and a `recalculate` repair endpoint.
+- **🕐 Timezone-Correct Days** — All date bucketing uses **Asia/Karachi** (PKT): meals/workouts logged after local midnight land on *today*, never "yesterday" (UTC bug).
 - **⏰ Celery Beat Scheduler** — Daily coach at 11 PM, weekly report every Monday 6 AM, without blocking the API.
 - **🍽️ USDA Integration** — Reference nutrition data cross-checked against USDA FoodData Central.
 - **🔐 Secure JWT Auth** — Access (30 min) + refresh (7 days) tokens with type-guard, bcrypt-hashed passwords.
@@ -57,6 +62,20 @@ This isn't a CRUD app with an AI bolted on. It's a genuine **backend + AI engine
 - **RAG pipeline** — embeddings → pgvector `cosine_distance` → grounded context — the right way to do reliable AI predictions.
 - **Production background processing** — Celery beat, fan-out tasks, async-in-sync bridges, rate-limit retries, NullPool, idempotent upserts.
 - **Confidence-aware UX** — the AI never silently stores guessed data; it asks for clarification (`is_confident=false`) and you confirm before saving.
+
+---
+
+## 🧗 Problems Solved Along the Way
+
+Real bugs I hit while building this — and the engineering behind the fixes:
+
+1. **Free-tier rate limits were breaking the UX.** Google Gemini's free tier 429s killed meal parsing — literally 50-second stalls. Fix: a `get_llm()` provider factory (`app/core/llm.py`) and moved all text generation to **Groq** `openai/gpt-oss-120b` (30 req/min free). Swapping providers is now a one-line `.env` change; agents don't know *which* LLM they're talking to. Embeddings stay on Gemini (Groq offers no embeddings API) — different quotas, barely a concern.
+
+2. **The LLM's structured output was unreliable.** It sometimes returned `{"classification": ...}` instead of the schema's `{"intent": ...}`, or refused to call tools at all. Fix: `with_structured_output(Model, method="json_mode")` **plus** injecting the exact Pydantic JSON schema (`json_schema_instruction()` via `model_json_schema()`) into every structured prompt. Parsing went from flaky to deterministic.
+
+3. **"Never empty" policy for AI requests.** If the LLM is down, the target engine silently fails — bad for a fitness app. Fix: TargetAgent falls back to honest **BMR/TDEE/BMI formulas** (`source: "ai"` vs `source: "math"`), and every user-facing AI endpoint fails fast with a graceful, structured error instead of a raw 500.
+
+4. **The "meals landed on yesterday" timezone bug.** Timestamps are stored as UTC, so a meal logged after midnight (PKT) bucketed into the *previous* day's daily log — totals silently wrong. Fix: standardized everything to **Asia/Karachi** in `app/core/dates.py` (`local_date()` for bucketing, `day_range()` for indexable TZ-safe range filters, `today_local()`), and frontend `todayISO()` matches via `Intl.DateTimeFormat` with the same timezone. "Today" now always means the user's calendar today.
 
 ---
 
@@ -84,8 +103,10 @@ This isn't a CRUD app with an AI bolted on. It's a genuine **backend + AI engine
                                 │                 └────────┬──────────────┘
                                 │                          │
                     ┌───────────▼───────────────────────────▼──────────┐
-                    │              Google Gemini (LLM + embeddings)      │
-                    │      structured_output · chat · text-embedding     │
+                    │              Groq LLM (text generation)          │
+                    │      gpt-oss-120b · structured · chat            │
+                    │      via get_llm() factory (app/core/llm.py)     │
+                    │      + Gemini text-embedding (768-dim) for RAG    │
                     └───────────────────────┬───────────────────────────┘
                                             │
 ┌───────────────────────┐        ┌──────────▼────────────────────────────┐
@@ -103,7 +124,7 @@ This isn't a CRUD app with an AI bolted on. It's a genuine **backend + AI engine
 1. Client sends request with `Authorization: Bearer <JWT>`.
 2. `get_current_user` dependency validates the JWT (rejects refresh token, extracts `sub`).
 3. Router → Service (business logic) → DB (async SQLAlchemy) / Agent (LLM).
-4. AI agents (LangChain + LangGraph) call Google Gemini.
+4. AI agents (LangChain + LangGraph) call **Groq** through the shared `get_llm()` factory (embeddings stay on Google Gemini).
 5. Heavy scheduled work (coach/report generation) delegates to Celery.
 
 ---
@@ -116,8 +137,9 @@ This isn't a CRUD app with an AI bolted on. It's a genuine **backend + AI engine
 | **ORM / DB**      | SQLAlchemy 2.0 async + asyncpg + PostgreSQL 16       | Type-safe async ORM, pgvector support                                    |
 | **Vector DB**     | pgvector (`Vector(768)`)                             | In-DB semantic search via `cosine_distance`                              |
 | **Agents**        | LangGraph 1.x + LangChain                            | Stateful, multi-step agent orchestration                                 |
-| **LLM**           | Google Gemini 3.6 Flash                              | Intent classification, parsing, structured output, coach insights        |
-| **Embeddings**    | Gemini text-embedding (768-dim)                      | Food text → vector for RAG                                               |
+| **LLM**           | Groq — `openai/gpt-oss-120b`                      | Free tier (30 req/min), classification, parsing, insights, coach chat |
+| **LLM Abstraction**| `get_llm()` factory (`app/core/llm.py`) | Provider decided by `.env` — swap LLMs without touching agents |
+| **Embeddings**    | Gemini text-embedding (768-dim)                      | Food text → vector for RAG (Groq has no embeddings API) |
 | **Background**    | Celery 5.6 + Redis 7 (broker/backend + beat)         | Scheduled daily/weekly AI generation                                     |
 | **Auth**          | python-jose (JWT) + bcrypt (passlib)                 | Stateless access/refresh tokens                                          |
 | **External**      | USDA FoodData Central API + httpx (async)            | Trusted nutrition reference                                              |
@@ -132,7 +154,7 @@ This isn't a CRUD app with an AI bolted on. It's a genuine **backend + AI engine
 fitness-ai-partner/
 ├── app/
 │   ├── main.py                 # FastAPI app + router registration
-│   ├── core/                   # config · security (JWT/bcrypt) · deps · celery_app
+│   ├── core/                   # config · security (JWT/bcrypt) · deps · celery_app · llm.py · dates.py
 │   ├── db/                     # base · async session
 │   ├── models/                 # user · food · meal · workout · daily_log · weekly_report
 │   ├── schemas/                # Pydantic request/response DTOs
@@ -166,7 +188,7 @@ fitness-ai-partner/
 git clone https://github.com/MuhammadHaider1/fitness-ai-partner.git
 cd fitness-ai-partner
 cp .env.example .env
-# edit .env — add your GEMINI_API_KEY, USDA_API_KEY and SECRET_KEY
+# edit .env — add your GROQ_API_KEY, USDA_API_KEY and SECRET_KEY
 ```
 
 ### 2. Start the infrastructure
@@ -252,6 +274,7 @@ foods (reference/verified nutrition + pgvector embedding)
 - **`Vector(768)` on `Food`** — Gemini's text-embedding output dimension; small enough for fast cosine search but semantically rich.
 - **`source (manual/agent)`** — data provenance: distinguishes user-entered from AI-parsed entries for trust & debugging.
 - **Unique constraints** — one daily log per user/date, one weekly report per user/week → race-safe against duplicate generation.
+- **`log_date` = Asia/Karachi calendar day** — bucketed via `app/core/dates.py` (`local_date`/`day_range`), so per-day totals always line up with the user's local "today".
 
 ---
 
@@ -264,8 +287,10 @@ Built with **LangGraph `StateGraph`** — stateful, conditional, modular.
 | **RouterAgent**  | Classify intent (meal/workout) + conditional route              | `IntentClassification`       |
 | **NutritionAgent**| RAG retrieval + meal parsing (nutrition estimate)               | `ParsedMeal` (confidence)    |
 | **WorkoutAgent** | Parse workout (type, sets, calories)                            | `ParsedWorkout`              |
-| **CoachAgent**   | Daily & weekly insight (dates, highlights, suggestions)         | `Daily/WeeklyCoachInsight`   |
+| **CoachAgent**   | Daily & weekly insight + **open-ended chat** (`chat_with_coach`, profile + 7-day context) | `Daily/WeeklyCoachInsight` / plain text |
 | **TargetAgent**  | BMR/TDEE + goal-based macro suggestion                          | `SuggestedTarget`            |
+
+> **Structured output reliability:** every structured agent uses `with_structured_output(Model, method="json_mode")` **plus** `json_schema_instruction(Model)` — the exact Pydantic JSON schema (`model_json_schema()`) is injected into the prompt. This eliminated the LLM returning wrong keys or skipping tool calls. All agents get their model through the shared `get_llm()` factory.
 
 ### RouterAgent (LangGraph flow)
 
@@ -306,6 +331,8 @@ seed_foods.py ──▶ USDA-verified foods + South Asian dishes
    retrieved verified context ──▶ NutritionAgent prompt ──▶ grounded estimate + reasoning
 ```
 
+> **Provider split:** embeddings are Gemini (768-dim), generation is **Groq** — two different quotas, both on free tiers.
+
 - **Cosine distance** measures semantic direction — ideal for matching similar food text.
 - **USDA FoodData Central** supplies trusted per-100g values for seeded ingredients.
 - The `reasoning` field makes each estimate **explainable**.
@@ -324,7 +351,7 @@ seed_foods.py ──▶ USDA-verified foods + South Asian dishes
 - **Fan-out**: a batched task fetches all user IDs, then `.delay()`s an individual task per user → one user's failure doesn't block others, and work distributes across workers.
 - **Async-in-sync bridge**: synchronous Celery tasks run async DB/AI via `asyncio.run(...)`.
 - **NullPool worker engine**: per-task DB connections prevent pool exhaustion.
-- **Rate-limit retry**: on Gemini `429 / RESOURCE_EXHAUSTED`, `self.retry(countdown=25)` recovers gracefully.
+- **Rate-limit retry**: on LLM `429 / RESOURCE_EXHAUSTED` (Groq/Gemini), `self.retry(countdown=25)` recovers gracefully.
 - **Idempotent upsert**: weekly report uses `UNIQUE(user_id, week_start)` — existing updated, missing created.
 
 ---
@@ -394,6 +421,7 @@ seed_foods.py ──▶ USDA-verified foods + South Asian dishes
 | Endpoint           | Method | Description                          |
 |--------------------|--------|--------------------------------------|
 | `/daily`           | GET    | Daily AI coach insight               |
+| `/ask`             | POST   | Coach chat — profile + last-7-days context |
 | `/suggest-target`  | GET    | Goal-based calorie/macro targets     |
 
 ### Weekly Report — `/weekly-report`
@@ -414,7 +442,9 @@ A modern **React + Vite** single-page app (in `frontend/`) that consumes this AP
 - **Dashboard** — today's calories/protein vs target, water, mood, calorie ring.
 - **AI Logging** — a chat-style input to log meals & workouts in natural language via `/agent/parse` → adjust → confirm.
 - **History** — meal/workout lists and daily log summary.
-- **Coach panel** — daily/weekly insights & suggested targets.
+- **Coach panel** — daily/weekly insights & suggested targets + a **💬 Ask** tab for the conversational AI coach.
+
+> The frontend was built **with AI assistance** — it exists to showcase the backend's capabilities. The real engineering depth here is backend and AI architecture.
 
 ```bash
 cd frontend
@@ -455,5 +485,5 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ---
 
 <div align="center">
-  <sub>Built with ❤️ — FastAPI · LangGraph · pgvector · Celery · Gemini</sub>
+  <sub>Built with ❤️ — FastAPI · LangGraph · Groq · Gemini Embeddings · pgvector · Celery</sub>
 </div>
