@@ -11,8 +11,8 @@ from app.core.security import (
 )
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, UserLogin, UserRead
-from app.services.auth_service import authenticate_user, create_user, get_user_by_email
+from app.schemas.user import UserCreate, UserLogin, UserRead, UserUpdate
+from app.services.auth_service import authenticate_user, create_user, get_user_by_email, update_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -68,3 +68,12 @@ async def refresh_token(payload: RefreshRequest):
 @router.get("/me", response_model=UserRead)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.patch("/me", response_model=UserRead)
+async def update_me(
+    user_in: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await update_user(db, current_user, user_in)

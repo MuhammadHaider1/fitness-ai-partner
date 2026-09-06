@@ -28,3 +28,10 @@ __pycache__/
 # Celery
 celerybeat-schedule
 celerybeat.pid
+
+# Frontend (React + Vite)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example

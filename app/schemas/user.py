@@ -30,3 +30,14 @@ class UserRead(UserBase):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+
+class UserUpdate(BaseModel):
+    """Profile fields user can edit"""
+    full_name: str | None = None
+    age: int | None = None
+    height_cm: float | None = None
+    weight_kg: float | None = None
+    gender: str | None = None
+    goal: str | None = None
+    activity_level: str | None = None
