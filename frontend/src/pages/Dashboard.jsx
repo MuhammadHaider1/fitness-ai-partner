@@ -32,11 +32,12 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const q = new URLSearchParams({ date: todayISO() }).toString()
+    const today = todayISO()
+    const q = new URLSearchParams({ date: today }).toString()
     Promise.all([
       api.get(`/daily-log/?${q}`).then((r) => setLog(r.data)),
-      api.get('/meals/').then((r) => setMeals(r.data.slice(-5).reverse())),
-      api.get('/workouts/').then((r) => setWorkouts(r.data.slice(-5).reverse())),
+      api.get(`/meals/?log_date=${today}`).then((r) => setMeals(r.data.slice(-5).reverse())),
+      api.get(`/workouts/?log_date=${today}`).then((r) => setWorkouts(r.data.slice(-5).reverse())),
     ])
       .catch((e) => setErr(e.response?.data?.detail || 'Could not load dashboard.'))
       .finally(() => setLoading(false))

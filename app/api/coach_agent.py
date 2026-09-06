@@ -1,5 +1,7 @@
 from datetime import date, timedelta
 
+from app.core.dates import today_local
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +19,7 @@ router = APIRouter(prefix="/coach", tags=["coach"])
 
 @router.get("/daily", response_model=DailyCoachResponse)
 async def get_daily_coach_feedback(
-    log_date: date = Query(default_factory=date.today),
+    log_date: date = Query(default_factory=today_local),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -55,7 +57,7 @@ async def ask_coach(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    end = date.today()
+    end = today_local()
     context_rows: list[str] = []
     for offset in range(7):
         d = end - timedelta(days=offset)

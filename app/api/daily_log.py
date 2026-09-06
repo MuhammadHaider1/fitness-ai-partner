@@ -1,5 +1,7 @@
 from datetime import date
 
+from app.core.dates import today_local
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,7 +35,7 @@ async def get_history(
 
 @router.get("/" , response_model=DailyLogRead , status_code=status.HTTP_200_OK)
 async def get_today_or_date_log(
-    log_date: date = Query(default_factory=date.today),
+    log_date: date = Query(default_factory=today_local),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -43,7 +45,7 @@ async def get_today_or_date_log(
 @router.patch("/", response_model=DailyLogRead , status_code=status.HTTP_200_OK)
 async def update_log(
     update_in: DailyLogUpdate,
-    log_date: date = Query(default_factory=date.today),
+    log_date: date = Query(default_factory=today_local),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -52,7 +54,7 @@ async def update_log(
 
 @router.post("/recalculate", response_model=DailyLogRead , status_code=status.HTTP_200_OK)
 async def recalculate_log(
-    log_date: date = Query(default_factory=date.today),
+    log_date: date = Query(default_factory=today_local),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

@@ -1,4 +1,4 @@
-from datetime import date
+from app.core.dates import today_local
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,7 +48,7 @@ async def apply_target(
 ):
     """Suggested target ko aaj ki daily-log par as calorie target apply karta hai."""
     update_in = DailyLogUpdate(calorie_target=payload.calorie_target)
-    today = date.today()
+    today = today_local()
     try:
         return await update_daily_log(db, current_user.id, today, update_in)
     except Exception:

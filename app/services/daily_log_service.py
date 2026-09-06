@@ -5,6 +5,7 @@ from sqlalchemy import func as sql_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.dates import day_range
 from app.models.daily_log import DailyLog
 from app.models.meal import Meal
 from app.schemas.daily_log import DailyLogSummary, DailyLogUpdate
@@ -64,6 +65,7 @@ async def get_daily_log(db:AsyncSession , user_id:uuid.UUID , log_date: date) ->
 
 async def recalculate_daily_log(db: AsyncSession, user_id: uuid.UUID, log_date: date) -> DailyLog:
     """DailyLog totals ko Meal table se dobara accurately calculate karo"""
+    day_start, day_end = day_range(log_date)
     result = await db.execute(
         select(
             sql_func.coalesce(sql_func.sum(Meal.calories), 0),
@@ -72,7 +74,8 @@ async def recalculate_daily_log(db: AsyncSession, user_id: uuid.UUID, log_date: 
             sql_func.coalesce(sql_func.sum(Meal.fats_g), 0),
         ).where(
             Meal.user_id == user_id,
-            sql_func.date(Meal.logged_at) == log_date,
+            Meal.logged_at >= day_start,
+            Meal.logged_at < day_end,
         )
     )
     total_cal, total_protein, total_carbs, total_fats = result.one()

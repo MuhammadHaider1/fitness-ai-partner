@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../services/api'
 import { Stat, Pill, Empty, LoadingFill, ErrBanner, Spinner, PageTitle } from '../components/ui'
-import { fmtNumber, todayISO, fmtDate } from '../services/format'
+import { fmtNumber, todayISO, shiftISO, fmtDate } from '../services/format'
 import { useAuth } from '../context/AuthContext'
 
 export default function History() {
@@ -18,7 +18,7 @@ export default function History() {
   const load = () => {
     setErr('')
     const end = todayISO()
-    const start = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+    const start = shiftISO(-30)
     const range = `start_date=${start}&end_date=${end}`
     Promise.all([
       api.get(`/daily-log/summary?${range}`).then((r) => setSummary(r.data)),

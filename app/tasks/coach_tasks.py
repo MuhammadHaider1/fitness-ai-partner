@@ -2,6 +2,8 @@ import asyncio
 import uuid
 from datetime import date, timedelta
 
+from app.core.dates import today_local
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -76,5 +78,5 @@ async def _generate_for_all_users(log_date_str: str) -> None:
 
 @celery_app.task(name="generate_daily_coach_for_all_users")
 def generate_daily_coach_for_all_users() -> None:
-    today_str = date.today().isoformat()  
+    today_str = today_local().isoformat()  
     asyncio.run(_generate_for_all_users(today_str))

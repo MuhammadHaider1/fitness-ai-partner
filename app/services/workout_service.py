@@ -1,9 +1,9 @@
 import uuid
 
-from sqlalchemy import func as sql_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.dates import day_range, local_date
 from app.models.workout import Workout
 from app.schemas.workout import WorkoutCreate, WorkoutUpdate
 from app.services.daily_log_service import apply_workout_to_daily_log
@@ -28,7 +28,7 @@ async def create_workout(db: AsyncSession, user_id: uuid.UUID, workout_in: Worko
     await db.commit()
     await db.refresh(workout)
 
-    log_date = workout.logged_at.date()
+    log_date = local_date(workout.logged_at)
     await apply_workout_to_daily_log(db, user_id, log_date, workout.calories_burned, sign=1)
     return workout
 
@@ -36,7 +36,8 @@ async def create_workout(db: AsyncSession, user_id: uuid.UUID, workout_in: Worko
 async def get_workouts_by_user(db:AsyncSession , user_id:uuid.UUID , log_date = None) -> list[Workout]:
     query = select(Workout).where(Workout.user_id == user_id)
     if log_date is not None:
-        query = query.where(sql_func.date(Workout.logged_at) == log_date)
+        start, end = day_range(log_date)
+        query = query.where(Workout.logged_at >= start, Workout.logged_at < end)
 
     query = query.order_by(Workout.logged_at.desc())
     result = await db.execute(query)
@@ -51,7 +52,7 @@ async def get_workout_by_id(db: AsyncSession, workout_id: uuid.UUID, user_id: uu
 
 
 async def update_workout(db: AsyncSession, workout: Workout, update_in: WorkoutUpdate) -> Workout:
-    log_date = workout.logged_at.date()
+    log_date = local_date(workout.logged_at)
     user_id = workout.user_id 
     old_calories_burned = workout.calories_burned
 
@@ -69,7 +70,7 @@ async def update_workout(db: AsyncSession, workout: Workout, update_in: WorkoutU
 
 
 async def delete_workout(db: AsyncSession, workout: Workout) -> None:
-    log_date = workout.logged_at.date()
+    log_date = local_date(workout.logged_at)
     user_id = workout.user_id
     calories_burned = workout.calories_burned
 

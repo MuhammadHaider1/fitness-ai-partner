@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import api from '../services/api'
 import { ErrBanner, Spinner, Pill, Empty, LoadingFill, PageTitle } from '../components/ui'
-import { fmtNumber, weekdayLabel, todayISO, bmiLabel } from '../services/format'
+import { fmtNumber, weekdayLabel, todayISO, shiftISO, bmiLabel } from '../services/format'
 import { useAuth } from '../context/AuthContext'
 
 export default function Coach() {
@@ -27,7 +27,7 @@ export default function Coach() {
 
   useEffect(() => {
     const end = todayISO()
-    const start = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+    const start = shiftISO(-30)
     const range = `start_date=${start}&end_date=${end}`
     setLoading(true)
     setCoachErr('')
@@ -114,7 +114,7 @@ export default function Coach() {
             <div className="msg-avatar">🤖</div>
             <div className="msg-body">
               <b>Assalam-o-Alaikum {user?.full_name?.split(' ')[0] || 'friend'}!</b>
-              <p className="muted">Here&apos;s your coaching for {weekdayLabel(new Date().toISOString().slice(0, 10))}</p>
+              <p className="muted">Here&apos;s your coaching for {weekdayLabel(todayISO())}</p>
               {coachLoading ? (
                 <Spinner label="Generating AI coach insight..." />
               ) : coachErr ? (

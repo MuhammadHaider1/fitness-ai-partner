@@ -1,4 +1,6 @@
-from datetime import date, timedelta
+from datetime import timedelta
+
+from app.core.dates import today_local
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +22,7 @@ async def generate_report(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    today = date.today()
+    today = today_local()
     week_start = today - timedelta(days=today.weekday())  # is hafte ka Monday
     week_end = week_start + timedelta(days=6)
     try:

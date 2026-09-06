@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.dates import day_range, local_date
 from app.models.meal import Meal
 from app.schemas.meal import MealCreate, MealUpdate
 from app.services.daily_log_service import apply_meal_to_daily_log
@@ -23,7 +24,7 @@ async def create_meal(db: AsyncSession, user_id: uuid.UUID, meal_in: MealCreate 
     await db.commit()
     await db.refresh(meal)
 
-    log_date= meal.logged_at.date()
+    log_date= local_date(meal.logged_at)
     await apply_meal_to_daily_log(
         db, user_id , log_date,
         calories=meal.calories,
@@ -39,8 +40,8 @@ async def create_meal(db: AsyncSession, user_id: uuid.UUID, meal_in: MealCreate 
 async def get_meals_by_user(db: AsyncSession, user_id: uuid.UUID, log_date=None) -> list[Meal]:
     query = select(Meal).where(Meal.user_id == user_id)
     if log_date is not None:
-        from sqlalchemy import func as sql_func
-        query = query.where(sql_func.date(Meal.logged_at) == log_date)
+        start, end = day_range(log_date)
+        query = query.where(Meal.logged_at >= start, Meal.logged_at < end)
     query = query.order_by(Meal.logged_at.desc())
     result = await db.execute(query)
     return list(result.scalars().all())
@@ -50,7 +51,7 @@ async def get_meal_by_id(db: AsyncSession, meal_id: uuid.UUID , user_id: uuid.UU
     return result.scalar_one_or_none()
 
 async def delete_meal(db: AsyncSession, meal: Meal) -> None:
-    log_date = meal.logged_at.date()
+    log_date = local_date(meal.logged_at)
     user_id = meal.user_id
     calories, protein_g, carbs_g, fats_g = meal.calories, meal.protein_g, meal.carbs_g, meal.fats_g
 
@@ -67,7 +68,7 @@ async def delete_meal(db: AsyncSession, meal: Meal) -> None:
     )
 
 async def update_meal(db:AsyncSession , meal: Meal , update_in: MealUpdate) -> Meal:
-    log_date = meal.logged_at.date()
+    log_date = local_date(meal.logged_at)
     user_id = meal.user_id
 
     # Save old values for subtraction process

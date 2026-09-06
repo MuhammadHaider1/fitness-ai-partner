@@ -22,7 +22,7 @@ async def adjust_meal(
         if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="AI is busy right now (Gemini rate limit reached). Please try again in a minute.",
+                detail="AI is busy right now (rate limit reached). Please try again in a minute.",
             )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

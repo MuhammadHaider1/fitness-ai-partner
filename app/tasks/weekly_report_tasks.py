@@ -2,6 +2,8 @@ import asyncio
 import uuid
 from datetime import date, timedelta
 
+from app.core.dates import today_local
+
 from sqlalchemy import select
 
 from app.core.celery_app import celery_app
@@ -26,7 +28,7 @@ def generate_weekly_report_task(user_id_str: str, week_start_str: str, week_end_
 
 
 async def _generate_for_all_users_weekly() -> None:
-    today = date.today()
+    today = today_local()
     week_start = today - timedelta(days=today.weekday() + 7)  # pichla poora hafta
     week_end = week_start + timedelta(days=6)
 
