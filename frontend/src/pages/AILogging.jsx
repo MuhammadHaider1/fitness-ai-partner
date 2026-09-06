@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../services/api'
-import { ErrBanner, Spinner, Empty } from '../components/ui'
-import { fmtNumber, DAY_NAMES, isoWeekday } from '../services/format'
+import { ErrBanner, Spinner, Empty, PageTitle } from '../components/ui'
+import { fmtNumber, DAY_NAMES, isoWeekday, WEEK_START_SAT } from '../services/format'
 
 const suggestions = [
   { label: '🍞', text: '2 roti aur daal khai' },
@@ -200,10 +200,9 @@ export default function AILogging() {
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
-      <div style={{ textAlign: 'center', marginBottom: 14 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800 }}>Log Entry 📝</h1>
-        <p className="muted">AI se log karo, manual daalo, ya routine se aaj ka workout pick karo.</p>
-      </div>
+      <PageTitle center emoji="📝" sub="AI se log karo, manual daalo, ya routine se aaj ka workout pick karo.">
+        Log Entry
+      </PageTitle>
 
       <div className="tabs" style={{ justifyContent: 'center' }}>
         {[
@@ -391,14 +390,14 @@ export default function AILogging() {
         <>
           <div className="card" style={{ marginBottom: 16 }}>
             <div className="day-picker">
-              {DAY_NAMES.map((name, i) => (
+              {WEEK_START_SAT.map((i) => (
                 <button
-                  key={name}
+                  key={DAY_NAMES[i]}
                   type="button"
                   className={`day-pill${rtDay === i ? ' day-pill--active' : ''}${i === today ? ' day-pill--today' : ''}`}
                   onClick={() => { setRtDay(i); setChecked([]) }}
                 >
-                  {name.slice(0, 3)}
+                  {DAY_NAMES[i].slice(0, 3)}
                   {i === today && <span style={{ display: 'block', fontSize: 10, opacity: 0.8 }}>today</span>}
                 </button>
               ))}

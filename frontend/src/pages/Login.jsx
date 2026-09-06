@@ -9,6 +9,7 @@ export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+  const [videoDone, setVideoDone] = useState(false)
 
   const submit = async (e) => {
     e.preventDefault()
@@ -26,6 +27,19 @@ export default function Login() {
 
   return (
     <div className="auth-wrap">
+      <div className="auth-bg" aria-hidden="true">
+        <video
+          className="bg-fill"
+          autoPlay
+          muted
+          playsInline
+          tabIndex={-1}
+          src="/auth-bg.mp4"
+          style={{ opacity: videoDone ? 0 : 0.22, transition: 'opacity 600ms ease' }}
+          onEnded={() => setVideoDone(true)}
+        />
+        <div className="auth-bg-fade" />
+      </div>
       <AuthHero />
       <div className="auth-form-side">
         <div className="auth-card">

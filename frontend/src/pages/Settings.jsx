@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
-import { ErrBanner, Spinner } from '../components/ui'
+import { ErrBanner, Spinner, PageTitle } from '../components/ui'
 import { todayISO } from '../services/format'
 
 const levels = ['sedentary', 'light', 'moderate', 'active', 'very_active']
@@ -76,8 +76,9 @@ export default function Settings() {
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto' }}>
-      <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Settings ⚙️</h1>
-      <p className="muted" style={{ marginBottom: 20 }}>Your profile feeds the AI — the more accurate it is, the better your coach.</p>
+      <PageTitle emoji="⚙️" sub="Your profile feeds the AI — the more accurate it is, the better your coach.">
+        Settings
+      </PageTitle>
       <ErrBanner message={err} />
       {ok && <div className="card" style={{ padding: 14, background: 'var(--primary-soft)', borderColor: 'var(--primary)', marginBottom: 16 }}>{ok}</div>}
 

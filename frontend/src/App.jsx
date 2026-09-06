@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
+import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
@@ -22,7 +23,7 @@ function Protected({ children }) {
 function Guest({ children }) {
   const { token, loading } = useAuth()
   if (loading) return <div className="loading-fill"><div className="spinner spinner--dark" /></div>
-  if (token) return <Navigate to="/" replace />
+  if (token) return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -31,10 +32,11 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Guest><Login /></Guest>} />
           <Route path="/register" element={<Guest><Register /></Guest>} />
           <Route element={<Protected><Layout /></Protected>}>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/log" element={<AILogging />} />
             <Route path="/history" element={<History />} />
             <Route path="/coach" element={<Coach />} />

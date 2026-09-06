@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import api from '../services/api'
-import { ErrBanner, Spinner, Pill, Empty, LoadingFill } from '../components/ui'
+import { ErrBanner, Spinner, Pill, Empty, LoadingFill, PageTitle } from '../components/ui'
 import { fmtNumber, weekdayLabel, todayISO, bmiLabel } from '../services/format'
 import { useAuth } from '../context/AuthContext'
 
@@ -72,10 +72,9 @@ export default function Coach() {
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto' }}>
-      <div style={{ textAlign: 'center', marginBottom: 8 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800 }}>AI Coach 🤖</h1>
-        <p className="muted">Your personal fitness intelligence — daily insights, targets &amp; weekly reviews.</p>
-      </div>
+      <PageTitle center emoji="🤖" sub={'Your personal fitness intelligence — daily insights, targets & weekly reviews.'}>
+        AI Coach
+      </PageTitle>
       <ErrBanner message={err} />
 
       <div className="tabs" style={{ justifyContent: 'center' }}>

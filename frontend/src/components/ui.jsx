@@ -1,11 +1,26 @@
-export function Stat({ label, value, icon, color = '#10b981' }) {
+export function Stat({ label, value, icon, color = '#a3e635' }) {
   return (
     <div className="stat">
       <div className="stat__top">
-        <span className="stat__label">{label}</span>
+        <span className="stat__label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 3, background: color, boxShadow: `0 0 8px ${color}` }} />
+          {label}
+        </span>
         {icon && <span style={{ fontSize: 20 }}>{icon}</span>}
       </div>
       <div className="stat__value">{value}</div>
+    </div>
+  )
+}
+
+export function PageTitle({ children, emoji, sub, center = false }) {
+  return (
+    <div className={`page-title-wrap${center ? ' page-title-wrap--center' : ''}`}>
+      <h1 className="page-title">
+        <span className="page-title__txt">{children}</span>
+        {emoji && <span className="page-title__emoji" aria-hidden="true">{emoji}</span>}
+      </h1>
+      {sub && <p className="page-sub">{sub}</p>}
     </div>
   )
 }
@@ -20,10 +35,10 @@ export function RingProgress({ value, max, label }) {
   return (
     <div className="ring">
       <svg width="150" height="150">
-        <circle cx="75" cy="75" r={r} fill="none" stroke="#1c2a42" strokeWidth="12" />
+        <circle cx="75" cy="75" r={r} fill="none" stroke="#17202f" strokeWidth="12" />
         <circle
           cx="75" cy="75" r={r} fill="none"
-          stroke={over ? '#ef4444' : '#3b82f6'}
+          stroke={over ? '#ef4444' : '#a3e635'}
           strokeWidth="12" strokeLinecap="round"
           strokeDasharray={c} strokeDashoffset={offset}
           style={{ transition: 'stroke-dashoffset 0.6s ease' }}

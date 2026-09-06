@@ -5,7 +5,7 @@ export default function Layout() {
   const { user, logout } = useAuth()
 
   const links = [
-    { to: '/', label: 'Dashboard', end: true },
+    { to: '/dashboard', label: 'Dashboard', end: true },
     { to: '/log', label: 'AI Logging' },
     { to: '/routine', label: 'Routine' },
     { to: '/history', label: 'History' },
@@ -15,9 +15,12 @@ export default function Layout() {
 
   return (
     <div className="app-shell">
+      <div className="app-bg" aria-hidden="true">
+        <video autoPlay loop muted playsInline preload="auto" tabIndex={-1} src="/app-bg.mp4" className="bg-cover" style={{ opacity: 0.1 }} />
+      </div>
       <nav className="navbar">
         <div className="navbar__inner">
-          <Link to="/" className="navbar__brand">
+          <Link to="/dashboard" className="navbar__brand">
             <img src="/favicon.svg" alt="Fitness AI Partner" />
             <span>Fitness AI Partner</span>
           </Link>

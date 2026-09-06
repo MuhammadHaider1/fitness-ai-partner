@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../services/api'
-import { Stat, Pill, Empty, LoadingFill, ErrBanner, Spinner } from '../components/ui'
+import { Stat, Pill, Empty, LoadingFill, ErrBanner, Spinner, PageTitle } from '../components/ui'
 import { fmtNumber, todayISO, fmtDate } from '../services/format'
 import { useAuth } from '../context/AuthContext'
 
@@ -47,8 +47,7 @@ export default function History() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>History 📊</h1>
-      <p className="muted" style={{ marginBottom: 16 }}>Track your progress over time.</p>
+      <PageTitle emoji="📊" sub="Track your progress over time.">History</PageTitle>
       <ErrBanner message={err} />
 
       <div className="tabs">

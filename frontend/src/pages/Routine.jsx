@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../services/api'
-import { ErrBanner, Spinner, Empty, LoadingFill } from '../components/ui'
-import { DAY_NAMES, isoWeekday, fmtNumber } from '../services/format'
+import { ErrBanner, Spinner, Empty, LoadingFill, PageTitle } from '../components/ui'
+import { DAY_NAMES, isoWeekday, fmtNumber, WEEK_START_SAT } from '../services/format'
 
 const EMPTY_EX = { name: '', workout_type: 'strength', sets: 3, reps: 10, weight_kg: '', duration_minutes: '', intensity: 'moderate', calories_burned: '' }
 
@@ -92,24 +92,23 @@ export default function Routine() {
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto' }}>
-      <div style={{ textAlign: 'center', marginBottom: 22 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800 }}>Weekly Workout Routine 🗓️</h1>
-        <p className="muted">Har day ke liye apna routine set karo — phir AI Log mein us day ka aaj ka workout pick kar sako.</p>
-      </div>
+      <PageTitle center emoji="🗓️" sub="Har day ke liye apna routine set karo — phir AI Log mein us day ka aaj ka workout pick kar sako.">
+        Weekly Workout Routine
+      </PageTitle>
 
       <ErrBanner message={err} />
       {ok && <div className="ok-banner">{ok}</div>}
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="day-picker">
-          {DAY_NAMES.map((name, i) => (
+          {WEEK_START_SAT.map((i) => (
             <button
-              key={name}
+              key={DAY_NAMES[i]}
               type="button"
               className={`day-pill${day === i ? ' day-pill--active' : ''}${i === today ? ' day-pill--today' : ''}`}
               onClick={() => { setDay(i); setErr(''); setOk('') }}
             >
-              {name.slice(0, 3)}
+              {DAY_NAMES[i].slice(0, 3)}
               {i === today && <span style={{ display: 'block', fontSize: 10, opacity: 0.8 }}>today</span>}
             </button>
           ))}
@@ -180,10 +179,10 @@ export default function Routine() {
       {Object.values(days).some((e) => e.length > 0) && (
         <div className="card" style={{ marginTop: 20 }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>📋 Week overview</h3>
-          {DAY_NAMES.map((name, i) => (
-            <div className="list-item" key={name}>
+          {WEEK_START_SAT.map((i) => (
+            <div className="list-item" key={DAY_NAMES[i]}>
               <div>
-                <b>{name}</b>
+                <b>{DAY_NAMES[i]}</b>
                 {i === today && <span className="pill pill--cyan" style={{ marginLeft: 6 }}>today</span>}
               </div>
               <div className="muted">
