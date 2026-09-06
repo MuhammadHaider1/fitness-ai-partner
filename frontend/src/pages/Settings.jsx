@@ -84,7 +84,7 @@ export default function Settings() {
       <div className="card" style={{ marginBottom: 20 }}>
         <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 14 }}>👤 Fitness Profile</h3>
         <p className="muted" style={{ marginBottom: 14 }}>
-          Used to calculate your BMR/TDEE and macro targets. Profile editing endpoint isn&apos;t exposed yet in the backend — suggest the AI targets from here instead.
+          Used to calculate your BMR/TDEE and macro targets for the AI coach.
         </p>
         <form onSubmit={saveProfile}>
           <div className="grid grid--2" style={{ gap: 14 }}>

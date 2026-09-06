@@ -20,10 +20,10 @@ export function RingProgress({ value, max, label }) {
   return (
     <div className="ring">
       <svg width="150" height="150">
-        <circle cx="75" cy="75" r={r} fill="none" stroke="#e2e8f0" strokeWidth="12" />
+        <circle cx="75" cy="75" r={r} fill="none" stroke="#1c2a42" strokeWidth="12" />
         <circle
           cx="75" cy="75" r={r} fill="none"
-          stroke={over ? '#ef4444' : '#10b981'}
+          stroke={over ? '#ef4444' : '#3b82f6'}
           strokeWidth="12" strokeLinecap="round"
           strokeDasharray={c} strokeDashoffset={offset}
           style={{ transition: 'stroke-dashoffset 0.6s ease' }}

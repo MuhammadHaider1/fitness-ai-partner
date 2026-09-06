@@ -8,6 +8,7 @@ import AILogging from './pages/AILogging'
 import History from './pages/History'
 import Coach from './pages/Coach'
 import Settings from './pages/Settings'
+import Routine from './pages/Routine'
 import NotFound from './pages/NotFound'
 import './index.css'
 
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/log" element={<AILogging />} />
             <Route path="/history" element={<History />} />
             <Route path="/coach" element={<Coach />} />
+            <Route path="/routine" element={<Routine />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<NotFound />} />

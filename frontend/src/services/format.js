@@ -7,3 +7,8 @@ export const fmtDate = (iso) => {
 }
 export const todayISO = () => new Date().toISOString().slice(0, 10)
 export const weekdayLabel = (iso) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+
+// ISO weekday: 0=Monday ... 6=Sunday (backend convention)
+export const isoWeekday = (date = new Date()) => (date.getDay() + 6) % 7
+export const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+export const dayName = (iso) => DAY_NAMES[isoWeekday(new Date(iso))]

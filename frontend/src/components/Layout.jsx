@@ -7,6 +7,7 @@ export default function Layout() {
   const links = [
     { to: '/', label: 'Dashboard', end: true },
     { to: '/log', label: 'AI Logging' },
+    { to: '/routine', label: 'Routine' },
     { to: '/history', label: 'History' },
     { to: '/coach', label: 'AI Coach' },
     { to: '/settings', label: 'Settings' },

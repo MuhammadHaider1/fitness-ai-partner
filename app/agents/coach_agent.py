@@ -70,6 +70,7 @@ async def generate_daily_coach_insight(
         model="gemini-3.6-flash",
         google_api_key=settings.GEMINI_API_KEY,
         temperature=0.4,
+        max_retries=0,
     )
 
     # 2. Bind structured output dynamically
@@ -107,11 +108,12 @@ async def generate_weekly_coach_insight(week_start, week_end, daily_summary, mea
     prompt = build_weekly_prompt(week_start, week_end, daily_summary, meals_count, workouts_count)
 
     llm = ChatGoogleGenerativeAI(
-            model="gemini-3.6-flash",
-            google_api_key=settings.GEMINI_API_KEY,
-            temperature=0.4,
-        )
+        model="gemini-3.6-flash",
+        google_api_key=settings.GEMINI_API_KEY,
+        temperature=0.4,
+        max_retries=0,
+    )
     weekly_structured_llm = llm.with_structured_output(WeeklyCoachInsight)
-    
+
     result = await weekly_structured_llm.ainvoke(prompt)
     return cast(WeeklyCoachInsight, result)

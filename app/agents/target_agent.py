@@ -78,6 +78,7 @@ async def suggest_target(user: User) -> SuggestedTarget:
         model="gemini-3.6-flash",
         google_api_key=settings.GEMINI_API_KEY,
         temperature=0.3,
+        max_retries=0,
     )
     structured_llm = llm.with_structured_output(SuggestedTarget)
 

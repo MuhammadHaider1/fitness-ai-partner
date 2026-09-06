@@ -12,6 +12,7 @@ export default function Coach() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   const [coachErr, setCoachErr] = useState('')
+  const [coachLoading, setCoachLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [tab, setTab] = useState('daily')
   const [logs, setLogs] = useState([])
@@ -24,6 +25,7 @@ export default function Coach() {
     const range = `start_date=${start}&end_date=${end}`
     setLoading(true)
     setCoachErr('')
+    setCoachLoading(true)
     api.get('/coach/daily')
       .then((r) => setDaily(r.data))
       .catch((e) => {
@@ -33,6 +35,7 @@ export default function Coach() {
           ? 'AI coach is busy right now (Gemini rate limit reached). Waapas try karo thori der baad.'
           : 'AI coach insight abhi nahi mil saki. Thori der baad try karo.')
       })
+      .finally(() => setCoachLoading(false))
     api.get('/coach/suggest-target').then((r) => setTarget(r.data)).catch(() => setTarget(null))
     api.get('/weekly-report/').then((r) => setReports(r.data)).catch(() => setReports([]))
     api.get(`/daily-log/history?${range}`).then((r) => setLogs(r.data)).catch(() => setLogs([]))
@@ -75,7 +78,9 @@ export default function Coach() {
             <div className="msg-body">
               <b>Assalam-o-Alaikum {user?.full_name?.split(' ')[0] || 'friend'}!</b>
               <p className="muted">Here&apos;s your coaching for {weekdayLabel(new Date().toISOString().slice(0, 10))}</p>
-              {coachErr ? (
+              {coachLoading ? (
+                <Spinner label="AI coach insight generate ho rahi hai..." />
+              ) : coachErr ? (
                 <div>
                   <p>🤕 {coachErr}</p>
                   <button className="btn btn--sm" style={{ marginTop: 8 }} onClick={() => setRefreshKey((k) => k + 1)}>
