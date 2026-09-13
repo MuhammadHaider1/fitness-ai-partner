@@ -25,6 +25,7 @@
 - [🗄️ Database Design](#️-database-design)
 - [🤖 AI Agent System](#-ai-agent-system)
 - [🔍 RAG Food Retrieval](#-rag-food-retrieval)
+- [🔌 MCP Server (AI Clients)](#-mcp-server-ai-clients)
 - [⏰ Background Jobs (Celery)](#-background-jobs-celery)
 - [🔐 Authentication](#-authentication)
 - [📡 API Reference](#-api-reference)
@@ -44,6 +45,7 @@
 - **🔍 RAG-Grounded Nutrition Estimates** — Instead of pure LLM guessing, verified food data is retrieved from a **pgvector** store (Gemini embeddings), and used to *ground* the LLM's estimate (accurate + explainable). Text generation runs on **Groq**.
 - **🤖 AI Coach** — Daily (`/coach/daily`) and weekly coach insights with highlights & suggestions, personalized with the user's profile (BMR/TDEE/BMI) + last 7 days of activity.
 - **💬 AI Coach Chat** — Ask the coach anything (`/coach/ask`): diet, workouts, progress. Replies are grounded in the user's profile + recent daily logs, not generic GPT text.
+- **🔌 MCP Server** — The same services & agents exposed as **7 Model Context Protocol tools** (`app/mcp_server/server.py`, `mcp==1.30.0` / FastMCP v1) over stdio & SSE — so Claude Desktop / Claude Code / Cursor can query fitness data and log meals/workouts from natural language. Write tools follow a **preview→confirm→save** pattern, so an AI agent can never silently mutate data.
 - **🧩 LLM Provider Abstraction** — A single `get_llm()` factory (`app/core/llm.py`); provider is decided by `.env` (Groq default, Gemini reference). Swap providers without touching agents.
 - **🎯 Smart Targets** — BMR/TDEE calculation with goal-based macro suggestions (`/coach/suggest-target`).
 - **📊 Daily Log Aggregation** — Denormalized per-day totals with incremental sync and a `recalculate` repair endpoint.
@@ -142,6 +144,7 @@ Real bugs I hit while building this — and the engineering behind the fixes:
 | **Embeddings**    | Gemini text-embedding (768-dim)                      | Food text → vector for RAG (Groq has no embeddings API) |
 | **Background**    | Celery 5.6 + Redis 7 (broker/backend + beat)         | Scheduled daily/weekly AI generation                                     |
 | **Auth**          | python-jose (JWT) + bcrypt (passlib)                 | Stateless access/refresh tokens                                          |
+| **MCP**           | `mcp==1.30.0` (FastMCP v1)                         | Expose the engine as Model Context Protocol tools for AI clients         |
 | **External**      | USDA FoodData Central API + httpx (async)            | Trusted nutrition reference                                              |
 | **Migrations**    | Alembic                                             | Versioned schema migrations                                              |
 | **Frontend**      | React + Vite                                         | Fast SPA consuming the API                                               |
@@ -161,12 +164,16 @@ fitness-ai-partner/
 │   ├── api/                    # auth · meal · workout · daily_log · entry/meal/workout_agent
 │   │                           #   coach_agent · target_agent · weekly_report
 │   ├── agents/                 # LangGraph agents: router · nutrition · workout · coach · target
+│   ├── mcp_server/             # MCP (Model Context Protocol) server: FastMCP v1, 7 tools, smoke test
 │   ├── services/               # embedding · food_retrieval · usda · daily_log · meal
 │   │                           #   workout · weekly_report · auth
 │   └── tasks/                  # Celery tasks: coach_tasks · weekly_report_tasks
 ├── alembic/                    # migrations
 ├── scripts/seed_foods.py       # USDA-verified food + embedding seeding
 ├── frontend/                   # React + Vite SPA
+├── mcp_dev_entry.py            # `mcp dev` entry file (MCP Inspector / GUI testing)
+├── mcp_sse_entry.py            # SSE launcher for MCP Inspector (port 9000)
+├── run_inspector.sh            # one-shot MCP Inspector GUI launcher
 ├── docker-compose.yml          # pgvector DB + Redis
 ├── requirements.txt
 └── .env.example                # configuration template
@@ -434,6 +441,38 @@ seed_foods.py ──▶ USDA-verified foods + South Asian dishes
 
 ---
 
+## 🔌 MCP Server (AI Clients)
+
+`app/mcp_server/server.py` exposes this same backend + agent layer as a **Model Context Protocol** server (`FastMCP`, `mcp==1.30.0`), so any MCP-compatible AI client (Claude Desktop, Claude Code, Cursor) can work with your fitness data directly.
+
+> **"Agentic layer is messenger, not brain"** — all domain logic lives in the same services/agents the REST API uses; MCP just adds natural-language wrappers. Logic in one place, two entry points.
+
+**7 tools:**
+
+| Tool | Type | Purpose |
+|---|---|---|
+| `get_daily_summary` | read | DailyLog totals, target, macros burned, water, mood |
+| `get_meal_history` | read | All meals logged on a date |
+| `get_workout_history` | read | All workouts logged on a date |
+| `get_weekly_streak_summary` | read | Range aggregate + current streak |
+| `get_daily_coach_insight` | read | AI coach daily summary (LLM) |
+| `log_meal_from_text` | write* | Parse "2 roti aur daal" → draft → confirm → save |
+| `log_workout_from_text` | write* | Parse "30 min running" → draft → confirm → save |
+
+**Write safety:** first call returns a parsed **draft** (*nothing saved*); the record is persisted only when the client sends back the exact values with `confirm=True`. `_require_user()` guards every tool with a clean error.
+
+```bash
+# Manual run (stdio transport):
+venv/bin/python -m app.mcp_server.server
+
+# Claude Desktop config: add as an MCP server (command + cwd = project root)
+# GUI testing: bash run_inspector.sh  → SSE on :9000 + MCP Inspector UI on :6274
+```
+
+Full details, Claude Desktop/Code config, failure modes & interview talking points: [`app/mcp_server/README.md`](app/mcp_server/README.md).
+
+---
+
 ## 🖥️ Frontend
 
 A modern **React + Vite** single-page app (in `frontend/`) that consumes this API, featuring:
@@ -470,11 +509,20 @@ Backend must be running on `http://localhost:8000` (CORS is configured for the V
 ## 🧪 Testing
 
 ```bash
-# Run the backend with the Python test runner you prefer (pytest if configured)
-pytest
+# MCP server — full smoke test (read-only tools + real MCP stdio protocol):
+venv/bin/python -m app.mcp_server.smoke_test
+
+# + write path (preview → confirm → save → DailyLog sync → rollback):
+venv/bin/python -m app.mcp_server.smoke_test --with-write
 ```
 
-> No test suite is committed yet — a great first contribution. Add tests for the auth flow, the entry agent parse→confirm flow, and the daily-log aggregation/recalculate consistency.
+Covers direct tool calls, the MCP stdio server subprocess (7 tools registered,
+JSON-RPC errors for bad input), and the full preview→confirm write flow with
+test-data cleanup.
+
+> Beyond the MCP smoke test, no unit test suite is committed yet — a great
+> first contribution. Add tests for the auth flow, the entry agent parse→confirm
+> flow, and the daily-log aggregation/recalculate consistency.
 
 ---
 

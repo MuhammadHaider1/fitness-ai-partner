@@ -307,7 +307,7 @@ export default function Coach() {
                 <div className="msg-avatar">🤖</div>
                 <div className="msg-body">
                   <b>Your AI Coach</b>
-                  <p className="muted" style={{ marginTop: 4 }}>Assalam-o-Alaikum! Pehla sawal poocho — e.g. "My diet plan mein kya improve karun?" ya "Kya mujhe protein badhana chahiye?"</p>
+                  <p className="muted" style={{ marginTop: 4 }}>Assalam-o-Alaikum! Ask me your first question — e.g. "What should I improve in my diet plan?" or "Should I increase my protein?"</p>
                 </div>
               </div>
             )}

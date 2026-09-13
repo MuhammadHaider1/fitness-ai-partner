@@ -57,6 +57,7 @@ langgraph-sdk==0.4.4
 langsmith==0.12.1
 Mako==1.4.1
 MarkupSafe==3.0.3
+mcp==1.30.0
 openai==3.6.0
 orjson==3.12.0
 ormsgpack==1.12.2
